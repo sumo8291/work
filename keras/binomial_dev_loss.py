@@ -19,11 +19,17 @@ from keras.optimizers import RMSprop
 from keras import backend as K
 import pdb
 # multiple normalize function can be avoided.
-def binomial_dev(vects,batch_size = 128):
+               
+def binomial_dev(vects,batch_size = 128,loss_weights = 1):
     pdb.set_trace()
     x,y = vects
-    vunit1 = K.l2_normalize(x, axis = -1)
-    vunit2 = K.l2_normalize(y, axis = -1)
+#    x = K.reshape(x,(batch_size,10))
+#    y = K.reshape(y,(batch_size,10))
+##    vbatch = K.cast(K.shape(x),dtype = "float32")
+    #batch_size = K.eval(vbatch)
+##    batch_size = int(batch_size.tolist()[0])
+    vunit1 = K.l2_normalize(x, axis = 1)
+    vunit2 = K.l2_normalize(y, axis = 1)
     kvar3 = K.concatenate([vunit1,vunit2],axis = 0)
     tkvar3 = K.transpose(kvar3)
     vconn = K.dot(kvar3,tkvar3) + K.epsilon()
@@ -74,7 +80,8 @@ def binomial_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
     '''
-    return K.sqrt(K.square(y_pred))
+    return K.sqrt(K.mean(K.square(y_pred)))
+    
 
 def create_pairs(x, digit_indices):
     '''Positive and negative pair creation.
@@ -100,11 +107,11 @@ def create_base_network(input_dim):
     '''
     seq = Sequential()
     seq.add(Dense(128, input_shape=(input_dim,), activation='relu'))
-    seq.add(Dropout(0.2))
+#    seq.add(Dropout(0.2))
     seq.add(Dense(128, activation='relu'))
-    seq.add(Dropout(0.2))
-    seq.add(Dense(128, activation='relu'))
-    return seq
+#    seq.add(Dropout(0.2))
+    seq.add(Dense(10, activation='relu'))
+    return seq  
 
 
 def compute_accuracy(predictions, labels):
@@ -165,20 +172,20 @@ model = Model([input_a, input_b], [distance,distance2])
 ##model.Summary()
 # train
 rms = RMSprop()
-model.compile(loss=[contrastive_loss,binomial_loss],optimizer=rms)
+model.compile(loss=[contrastive_loss,binomial_loss],optimizer=rms,loss_weights = [0,1])
 model.fit([tr_pairs[:, 0], tr_pairs[:, 1]], [tr_y,tr_y],
           batch_size=128,
           epochs=epochs,
           validation_data=([te_pairs[:, 0], te_pairs[:, 1]], [te_y,te_y]))
-##
-# compute final accuracy on training and test sets
-##pred = model.predict([tr_pairs[0:128, 0], tr_pairs[0:128, 1]])
-##tr_acc = compute_accuracy(pred, tr_y)
-##pred = model.predict([te_pairs[:, 0], te_pairs[:, 1]])
-##te_acc = compute_accuracy(pred, te_y)
-##
-##print('* Accuracy on training set: %0.2f%%' % (100 * tr_acc))
-##print('* Accuracy on test set: %0.2f%%' % (100 * te_acc))
+
+#compute final accuracy on training and test sets
+pred = model.predict([tr_pairs[0:128, 0], tr_pairs[0:128, 1]],batch_size = 128)
+tr_acc = compute_accuracy(pred[0], tr_y[:128])
+pred = model.predict([te_pairs[0:128:, 0], te_pairs[0:128:, 1]],batch_size = 128)
+te_acc = compute_accuracy(pred[0], te_y[:128])
+
+print('* Accuracy on training set: %0.2f%%' % (100 * tr_acc))
+print('* Accuracy on test set: %0.2f%%' % (100 * te_acc))
 
 ## TO-DO implement the method stated in keras-function-API
 ## see output of 10 neurons
