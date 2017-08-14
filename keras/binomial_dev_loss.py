@@ -19,11 +19,11 @@ from keras.optimizers import RMSprop
 from keras import backend as K
 import pdb
 # multiple normalize function can be avoided.
-def binomial_dev(vects,batch_size = 128):
-    pdb.set_trace()
+
+def binomial_dev(vects,batch_size = 128,loss_weights = 1):
     x,y = vects
-    vunit1 = K.l2_normalize(x, axis = -1)
-    vunit2 = K.l2_normalize(y, axis = -1)
+    vunit1 = K.l2_normalize(x, axis = 1)
+    vunit2 = K.l2_normalize(y, axis = 1)
     kvar3 = K.concatenate([vunit1,vunit2],axis = 0)
     tkvar3 = K.transpose(kvar3)
     vconn = K.dot(kvar3,tkvar3) + K.epsilon()
@@ -37,13 +37,11 @@ def binomial_dev(vects,batch_size = 128):
             vmat[i,i+batch_size] = vmat[i+batch_size,i] = 0
         else:
             vmat[i,i+batch_size] = vmat[i+batch_size,i] = 1      
-##    pdb.set_trace()   
     vmat = K.variable(vmat)               
     vmat2 = K.variable(vmat2)               
-    #vconn = K.variable(vconn)               
     beta = random.uniform(0, 1)
     alpha = random.uniform(0, 1)
-    vcost = K.sum(K.log(-1*alpha*(K.exp((vconn - beta)*vmat)) + 1)*vmat2) + K.epsilon()                    
+    vcost = K.abs(K.sum(K.log(K.exp((vconn - beta)*vmat*-1*alpha) + 1)*vmat2))
     vcost = K.reshape(vcost,(1,))
     vcost = K.repeat_elements(vcost, batch_size,axis = 0)
     return vcost
@@ -59,8 +57,7 @@ def cosine_distance(vects):
     x, y = vects
     vunit1 = K.l2_normalize(x, axis = -1)
     vunit2 = K.l2_normalize(y, axis = -1)
-    #return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
-    return K.mean(vunit1*vunit2, axis = -1)
+    return K.sum(vunit1*vunit2, axis = -1)
     
 def contrastive_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
@@ -71,10 +68,8 @@ def contrastive_loss(y_true, y_pred):
                   (1 - y_true) * K.square(K.maximum(margin - y_pred, 0)))
 
 def binomial_loss(y_true, y_pred):
-    '''Contrastive loss from Hadsell-et-al.'06
-    http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
-    '''
     return K.sqrt(K.square(y_pred))
+    
 
 def create_pairs(x, digit_indices):
     '''Positive and negative pair creation.
@@ -160,25 +155,20 @@ distance2 = Lambda(binomial_dev,output_shape= eucl_dist_output_shape)([processed
 
 #my_loss = binomial_dev([processed_a, processed_b])
 model = Model([input_a, input_b], [distance,distance2])
-
-
-##model.Summary()
-# train
 rms = RMSprop()
-model.compile(loss=[contrastive_loss,binomial_loss],optimizer=rms)
+
+model.compile(loss=[contrastive_loss,binomial_loss],optimizer=rms,loss_weights = [0,1])
+
 model.fit([tr_pairs[:, 0], tr_pairs[:, 1]], [tr_y,tr_y],
           batch_size=128,
           epochs=epochs,
           validation_data=([te_pairs[:, 0], te_pairs[:, 1]], [te_y,te_y]))
-##
-# compute final accuracy on training and test sets
-##pred = model.predict([tr_pairs[0:128, 0], tr_pairs[0:128, 1]])
-##tr_acc = compute_accuracy(pred, tr_y)
-##pred = model.predict([te_pairs[:, 0], te_pairs[:, 1]])
-##te_acc = compute_accuracy(pred, te_y)
-##
-##print('* Accuracy on training set: %0.2f%%' % (100 * tr_acc))
-##print('* Accuracy on test set: %0.2f%%' % (100 * te_acc))
 
-## TO-DO implement the method stated in keras-function-API
-## see output of 10 neurons
+#compute final accuracy on training and test sets
+pred = model.predict([tr_pairs[0:128, 0], tr_pairs[0:128, 1]],batch_size = 128)
+tr_acc = compute_accuracy(pred[0], tr_y[:128])
+pred = model.predict([te_pairs[0:128:, 0], te_pairs[0:128:, 1]],batch_size = 128)
+te_acc = compute_accuracy(pred[0], te_y[:128])
+
+print('* Accuracy on training set: %0.2f%%' % (100 * tr_acc))
+print('* Accuracy on test set: %0.2f%%' % (100 * te_acc))
