@@ -21,7 +21,7 @@ import pdb
 # multiple normalize function can be avoided.
                
 def binomial_dev(vects,batch_size = 128,loss_weights = 1):
-    pdb.set_trace()
+#    pdb.set_trace()
     x,y = vects
 #    x = K.reshape(x,(batch_size,10))
 #    y = K.reshape(y,(batch_size,10))
@@ -43,13 +43,14 @@ def binomial_dev(vects,batch_size = 128,loss_weights = 1):
             vmat[i,i+batch_size] = vmat[i+batch_size,i] = 0
         else:
             vmat[i,i+batch_size] = vmat[i+batch_size,i] = 1      
-##    pdb.set_trace()   
+    pdb.set_trace()   
     vmat = K.variable(vmat)               
     vmat2 = K.variable(vmat2)               
     #vconn = K.variable(vconn)               
     beta = random.uniform(0, 1)
     alpha = random.uniform(0, 1)
-    vcost = K.sum(K.log(-1*alpha*(K.exp((vconn - beta)*vmat)) + 1)*vmat2) + K.epsilon()                    
+    vcost = K.abs(K.sum(K.log(K.exp((vconn - beta)*vmat*-1*alpha) + 1)*vmat2))
+#    vcost = K.abs(K.sum(K.log(K.abs(-1*alpha*(K.exp((vconn - beta)*vmat)) + 1)*vmat2 + K.epsilon()))) 
     vcost = K.reshape(vcost,(1,))
     vcost = K.repeat_elements(vcost, batch_size,axis = 0)
     return vcost
@@ -66,7 +67,7 @@ def cosine_distance(vects):
     vunit1 = K.l2_normalize(x, axis = -1)
     vunit2 = K.l2_normalize(y, axis = -1)
     #return K.sqrt(K.maximum(K.sum(K.square(x - y), axis=1, keepdims=True), K.epsilon()))
-    return K.mean(vunit1*vunit2, axis = -1)
+    return K.sum(vunit1*vunit2, axis = -1)
     
 def contrastive_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
@@ -80,7 +81,7 @@ def binomial_loss(y_true, y_pred):
     '''Contrastive loss from Hadsell-et-al.'06
     http://yann.lecun.com/exdb/publis/pdf/hadsell-chopra-lecun-06.pdf
     '''
-    return K.sqrt(K.mean(K.square(y_pred)))
+    return K.mean(K.abs(y_pred))
     
 
 def create_pairs(x, digit_indices):
@@ -107,9 +108,9 @@ def create_base_network(input_dim):
     '''
     seq = Sequential()
     seq.add(Dense(128, input_shape=(input_dim,), activation='relu'))
-#    seq.add(Dropout(0.2))
+    seq.add(Dropout(0.2))
     seq.add(Dense(128, activation='relu'))
-#    seq.add(Dropout(0.2))
+    seq.add(Dropout(0.2))
     seq.add(Dense(10, activation='relu'))
     return seq  
 
