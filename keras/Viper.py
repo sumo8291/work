@@ -77,13 +77,33 @@ def binomial_loss(y_true, y_pred):
 def create_base_network(input_dim):
     '''Base network to be shared (eq. to feature extraction).
     '''
+    
+    # seq.add(Dense(256, input_shape=(input_dim,), activation='relu'))
+    # seq.add(Dropout(0.2))
+    # seq.add(Dense(256, activation='relu'))
+    # seq.add(Dropout(0.2))
+    # seq.add(Dense(400, activation='relu'))
+
+    # Present the input as batchSize x channels(3) x 48 x48
     seq = Sequential()
-    seq.add(Dense(256, input_shape=(input_dim,), activation='relu'))
-    seq.add(Dropout(0.2))
-    seq.add(Dense(256, activation='relu'))
-    seq.add(Dropout(0.2))
-    seq.add(Dense(400, activation='relu'))
-    return seq  
+    # First CNN Layer input (48x48) -> conv(7x7) -> BatchNorm -> MaxPool -> Relu -> output(24 x 24)
+    seq.add(Conv2D(filters = 64, kernel_size = (7, 7), strides = (1,1), padding = "same", data_format='channels_first')
+	seq.add(BatchNormalization(axis=1))
+    seq.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='valid', data_format='channels_first'))
+    seq.add(Activation('relu'))
+    
+    # Second CNN Layer Input(24x24) -> conv(5x5) -> BatchNorm -> MaxPool -> Relu -> output(12 x 12)
+    seq.add(Conv2D(filters = 64, kernel_size = (5, 5), strides = (1,1), padding = "same", data_format='channels_first')
+	seq.add(BatchNormalization(axis=1))    	
+	seq.add(MaxPooling2D(pool_size=(2, 2), strides=None, padding='valid', data_format='channels_first'))
+	seq.add(Activation('relu'))
+
+	# Flattening the output for densely connected network
+	seq.add(Flatten())
+	seq.add(Dense(units = 500))
+	# I Don't think the last layer has any RELU activation
+    
+    return seq 
 
 # Pairing for viper Dataset.
 # Change path1 and path2  to folder of Viper Dataset.
